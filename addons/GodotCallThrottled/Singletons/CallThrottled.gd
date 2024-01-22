@@ -18,7 +18,7 @@ var _main_iteration_end_ticks := 0
 var _last_node_scene := preload("res://addons/GodotCallThrottled/LastNode/last_node.tscn")
 var _last_node : Node = null
 
-var _to_call : Array[Dictionary] = []
+var _to_call : Array[Callable] = []
 var _mutex := Mutex.new()
 
 const _is_logging := false
@@ -79,18 +79,13 @@ func _run_callables(overhead_usec : int) -> void:
 
 		# Get the next callable
 		_mutex.lock()
-		var entry := _to_call.pop_front()
+		var callable := _to_call.pop_front()
 		_mutex.unlock()
 
 		var did_call := false
-		if entry:
-			var callable = entry["callable"]
-			var args = entry["args"]
-			if callable != null and callable.is_valid() and not callable.is_null():
-				if args != null and typeof(args) == TYPE_ARRAY and not args.is_empty():
-					callable.callv(args)
-				else:
-					callable.call()
+		if callable:
+			if callable.is_valid() and not callable.is_null():
+				callable.call()
 				did_work = true
 				did_call = true
 				call_count += 1
@@ -145,16 +140,11 @@ func start(frame_budget_usec : int, frame_budget_threshold_usec : int) -> void:
 	self.get_tree().connect("physics_frame", Callable(self, "_on_start_physics_frame"))
 	_is_setup = true
 
-func call_throttled(cb : Callable, args := []) -> void:
+func call_throttled(cb : Callable) -> void:
 	if not _is_setup:
 		push_error("Please run CallThrottled.start before calling")
 		return
 
-	var entry := {
-		"callable" : cb,
-		"args" : args,
-	}
-
 	_mutex.lock()
-	_to_call.push_back(entry)
+	_to_call.push_back(cb)
 	_mutex.unlock()
