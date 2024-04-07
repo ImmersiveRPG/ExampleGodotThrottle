@@ -7,6 +7,11 @@ extends Node
 const INT32_MAX := int(int(pow(2, 31)) - 1)
 const INT64_MAX := int(int(pow(2, 63)) - 1)
 
+enum QueuePosition {
+	Back,
+	Front,
+}
+
 signal log(frame_budget_usec : int, overhead_usec : int, frame_budget_expenditure_usec : int, frame_budget_surplus_usec : int, call_count : int, waiting_count : int)
 signal waiting_count_change(waiting_count : int)
 signal over_frame_budget(used_usec : int, budget_usec : int)
@@ -140,11 +145,14 @@ func start(frame_budget_usec : int, frame_budget_threshold_usec : int) -> void:
 	self.get_tree().connect("physics_frame", Callable(self, "_on_start_physics_frame"))
 	_is_setup = true
 
-func call_throttled(cb : Callable) -> void:
+func call_throttled(cb : Callable, queue_position := QueuePosition.Back) -> void:
 	if not _is_setup:
 		push_error("Please run CallThrottled.start before calling")
 		return
 
 	_mutex.lock()
-	_to_call.push_back(cb)
+	if queue_position == QueuePosition.Back:
+		_to_call.push_back(cb)
+	else:
+		_to_call.push_front(cb)
 	_mutex.unlock()
